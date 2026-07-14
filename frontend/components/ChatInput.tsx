@@ -33,6 +33,7 @@ export function ChatInput({ onSend, disabled, onInputChange }: ChatInputProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const [dragOver, setDragOver] = useState(false);
 
   const hasContent = input.trim().length > 0 || pendingFiles.length > 0;
 
@@ -170,8 +171,30 @@ export function ChatInput({ onSend, disabled, onInputChange }: ChatInputProps) {
     }
   };
 
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(true);
+  };
+
+  const handleDragLeave = () => {
+    setDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    if (e.dataTransfer.files.length > 0) {
+      handleFilesSelected(e.dataTransfer.files);
+    }
+  };
+
   return (
-    <div className="w-full max-w-3xl mx-auto px-4 pb-4">
+    <div
+      className={`w-full max-w-3xl mx-auto px-4 pb-4 ${dragOver ? "opacity-80" : ""}`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       {pendingFiles.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-2">
           {pendingFiles.map((pf) => (
