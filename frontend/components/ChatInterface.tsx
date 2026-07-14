@@ -23,6 +23,7 @@ export function ChatInterface({ kbId, initialConvId, onConversationCreated }: Ch
   const [initialLoading, setInitialLoading] = useState(!!initialConvId);
   const [convId, setConvId] = useState<string | null>(initialConvId || null);
   const [generatingTts, setGeneratingTts] = useState(false);
+  const [processingImages, setProcessingImages] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -115,7 +116,9 @@ export function ChatInterface({ kbId, initialConvId, onConversationCreated }: Ch
 
     let base64Images: string[] = [];
     if (imageFiles.length > 0) {
+      setProcessingImages(true);
       base64Images = await Promise.all(imageFiles.map(fileToBase64));
+      setProcessingImages(false);
     }
 
     try {
