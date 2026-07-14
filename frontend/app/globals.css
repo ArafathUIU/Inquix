@@ -46,6 +46,10 @@ body {
   animation: fadeIn 0.25s ease-out;
 }
 
+.message-pop {
+  animation: fadeIn 0.2s ease-out;
+}
+
 @keyframes slideInRight {
   from { transform: translateX(100%); }
   to { transform: translateX(0); }
