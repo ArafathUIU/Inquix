@@ -1,7 +1,11 @@
 import json
 import base64
+import os
+import tempfile
 import httpx
 from typing import AsyncGenerator
+from PIL import Image
+import pytesseract
 from app.config import settings
 
 
@@ -123,23 +127,60 @@ async def _generate_groq(
 
 
 async def _caption_image(image_base64: str) -> str:
+    img_data = base64.b64decode(image_base64)
+    tmp_path = None
     try:
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            response = await client.post(
-                f"{settings.ollama_url}/api/generate",
-                json={
-                    "model": settings.vision_model,
-                    "prompt": "Describe this image in detail. What do you see?",
-                    "images": [image_base64],
-                    "stream": False,
-                    "options": {"num_predict": 150, "temperature": 0.2},
-                },
-            )
-            response.raise_for_status()
-            return response.json().get("response", "")
+        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
+            tmp.write(img_data)
+            tmp_path = tmp.name
+
+        image = Image.open(tmp_path)
+        print(f"[_caption_image] Image opened: {image.size}, mode={image.mode}")
+
+        ocr_text = ""
+        try:
+            ocr_text = pytesseract.image_to_string(image, config="--psm 6 --oem 3")
+            print(f"[_caption_image] OCR result length: {len(ocr_text.strip())}")
+            if ocr_text.strip():
+                print(f"[_caption_image] OCR text preview: {ocr_text.strip()[:200]}")
+        except Exception as e:
+            print(f"[_caption_image] Tesseract OCR failed: {e}")
+
+        caption = ""
+        try:
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                response = await client.post(
+                    f"{settings.ollama_url}/api/generate",
+                    json={
+                        "model": settings.vision_model,
+                        "prompt": "Describe this image briefly. What type of document or scene is it?",
+                        "images": [image_base64],
+                        "stream": False,
+                        "options": {"num_predict": 80, "temperature": 0.1},
+                    },
+                )
+                response.raise_for_status()
+                caption = response.json().get("response", "")
+                print(f"[_caption_image] Vision caption: {caption[:100]}")
+        except Exception as e:
+            print(f"[_caption_image] Vision model failed: {e}")
+
+        parts = []
+        if ocr_text.strip():
+            parts.append(f"SHOPPING RECEIPT TEXT:\n{ocr_text.strip()}")
+        if caption.strip():
+            parts.append(f"VISUAL: {caption.strip()}")
+
+        result = "\n\n".join(parts) if parts else ""
+        print(f"[_caption_image] Final result length: {len(result)}")
+        return result
+
     except Exception as e:
-        print(f"Image captioning failed: {e}")
+        print(f"[_caption_image] Image analysis failed: {e}")
         return ""
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
 
 
 async def _generate_ollama(
@@ -149,24 +190,17 @@ async def _generate_ollama(
     messages = build_messages(query, chunks, chat_history, kb_documents)
 
     system_msg = ""
-    context_messages = []
     for m in messages:
         if m["role"] == "system":
             system_msg = m["content"]
-        else:
-            context_messages.append(m)
 
-    prompt_parts = []
-    if system_msg:
-        prompt_parts.append(system_msg)
-    prompt_parts.append("")
-    for m in context_messages:
-        role = "User" if m["role"] == "user" else "Assistant"
-        content = m["content"]
-        text = content if isinstance(content, str) else ""
-        prompt_parts.append(f"{role}: {text}")
-
-    prompt = "\n".join(prompt_parts)
+    chat_text = ""
+    for m in messages:
+        if m["role"] != "system":
+            label = "User" if m["role"] == "user" else "Assistant"
+            content = m["content"]
+            text = content if isinstance(content, str) else ""
+            chat_text += f"{label}: {text}\n"
 
     if images:
         captions = []
@@ -174,8 +208,24 @@ async def _generate_ollama(
             caption = await _caption_image(img)
             if caption:
                 captions.append(f"Image {i + 1}: {caption}")
-        if captions:
-            prompt += "\n\nThe user uploaded the following image(s):\n" + "\n".join(captions) + "\n\nPlease answer the user's question based on the image content above."
+            else:
+                captions.append(f"Image {i + 1}: (image provided)")
+        image_context = "The user provided the following image(s):\n" + "\n".join(captions)
+        if system_msg:
+            system_msg += "\n\n" + image_context
+        else:
+            system_msg = image_context
+
+    prompt_parts = []
+    if system_msg:
+        prompt_parts.append(system_msg)
+    prompt_parts.append("")
+    prompt_parts.append(chat_text.strip())
+    if not chat_text.strip().endswith(f"User: {query}"):
+        prompt_parts.append(f"User: {query}")
+    prompt_parts.append("Assistant:")
+
+    prompt = "\n".join(prompt_parts)
 
     ollama_payload = {
         "model": settings.llm_model,
