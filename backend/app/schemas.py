@@ -37,6 +37,7 @@ class DocumentResponse(BaseModel):
 class ChatRequest(BaseModel):
     query: str
     conversation_id: Optional[UUID] = None
+    images: list[str] = []
 
 
 class ConversationResponse(BaseModel):
