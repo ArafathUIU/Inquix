@@ -219,8 +219,9 @@ export function ChatInterface({ kbId, initialConvId, onConversationCreated }: Ch
 
   if (initialLoading) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex flex-col items-center justify-center h-full gap-3">
         <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+        <p className="text-xs text-gray-400">Loading conversation...</p>
       </div>
     );
   }
