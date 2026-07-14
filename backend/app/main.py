@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine, Base
 from app.services.embedding import ensure_models
-from app.routers import health, kb, documents, chat
+from app.routers import health, kb, documents, chat, audio, tts
 
 
 @asynccontextmanager
@@ -32,6 +32,8 @@ app.include_router(health.router, prefix="/api", tags=["health"])
 app.include_router(kb.router, prefix="/api", tags=["kb"])
 app.include_router(documents.router, prefix="/api", tags=["documents"])
 app.include_router(chat.router, prefix="/api", tags=["chat"])
+app.include_router(audio.router, prefix="/api", tags=["audio"])
+app.include_router(tts.router, prefix="/api", tags=["tts"])
 
 
 @app.get("/")
