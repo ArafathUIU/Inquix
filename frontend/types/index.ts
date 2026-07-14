@@ -33,6 +33,8 @@ export interface Message {
   role: "user" | "assistant";
   content: string;
   citations?: Citation[];
+  audioUrl?: string;
+  images?: string[];
 }
 
 export interface Conversation {
