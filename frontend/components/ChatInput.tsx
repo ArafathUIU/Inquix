@@ -80,10 +80,22 @@ export function ChatInput({ onSend, disabled, onInputChange }: ChatInputProps) {
     });
   };
 
+  const MAX_FILE_SIZE = 20 * 1024 * 1024;
+
   const handleFilesSelected = async (files: FileList | null) => {
     if (!files) return;
 
-    const newFiles: PendingFile[] = Array.from(files).map((file) => ({
+    const validFiles = Array.from(files).filter((f) => {
+      if (f.size > MAX_FILE_SIZE) {
+        alert(`File "${f.name}" exceeds 20MB limit`);
+        return false;
+      }
+      return true;
+    });
+
+    if (validFiles.length === 0) return;
+
+    const newFiles: PendingFile[] = validFiles.map((file) => ({
       id: nextFileId(),
       file,
       preview: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
