@@ -41,7 +41,7 @@ export function DocumentList({ documents, onDelete }: DocumentListProps) {
       <div className="py-8 text-center">
         <File className="w-8 h-8 text-gray-300 mx-auto mb-2" />
         <p className="text-sm text-gray-400">No documents yet</p>
-        <p className="text-xs text-gray-400 mt-1">Upload files to get started</p>
+        <p className="text-xs text-gray-400 mt-1">Upload PDFs, images, or audio files</p>
       </div>
     );
   }
