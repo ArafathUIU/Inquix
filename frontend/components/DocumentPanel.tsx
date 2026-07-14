@@ -1,4 +1,5 @@
 "use client";
+import { useEffect } from "react";
 import { X, Loader2 } from "lucide-react";
 import { FileUpload } from "./FileUpload";
 import { DocumentList } from "./DocumentList";
@@ -21,6 +22,15 @@ export function DocumentPanel({
   onUploadComplete,
   onDeleteDocument,
 }: DocumentPanelProps) {
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [isOpen, onClose]);
+
   return (
     <>
       {isOpen && (
