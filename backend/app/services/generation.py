@@ -70,12 +70,58 @@ def build_messages(
     return messages
 
 
+async def _generate_openai(
+    query: str, chunks: list[dict], chat_history: list[dict] | None = None,
+    kb_documents: list[str] | None = None, images: list[str] | None = None,
+) -> AsyncGenerator[str, None]:
+    messages = build_messages(query, chunks, chat_history, kb_documents, images)
+
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        async with client.stream(
+            "POST",
+            "https://api.openai.com/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {settings.openai_api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": settings.openai_llm_model,
+                "messages": messages,
+                "stream": True,
+                "temperature": 0.3,
+                "max_tokens": 4096,
+            },
+        ) as response:
+            response.raise_for_status()
+            async for line in response.aiter_lines():
+                if not line or not line.startswith("data: "):
+                    continue
+                data_str = line[6:]
+                if data_str == "[DONE]":
+                    return
+                try:
+                    data = json.loads(data_str)
+                    delta = data.get("choices", [{}])[0].get("delta", {})
+                    content = delta.get("content", "")
+                    if content:
+                        yield content
+                except json.JSONDecodeError:
+                    continue
+
+
 async def generate_stream(
     query: str, chunks: list[dict], chat_history: list[dict] | None = None,
     kb_documents: list[str] | None = None, images: list[str] | None = None,
 ) -> AsyncGenerator[str, None]:
-    provider = settings.llm_provider
-    if provider == "groq" and settings.groq_api_key:
+    if settings.openai_api_key:
+        try:
+            async for token in _generate_openai(query, chunks, chat_history, kb_documents, images):
+                yield token
+            return
+        except Exception as e:
+            print(f"OpenAI generation failed, falling back: {e}")
+
+    if settings.groq_api_key:
         try:
             async for token in _generate_groq(query, chunks, chat_history, kb_documents, images):
                 yield token

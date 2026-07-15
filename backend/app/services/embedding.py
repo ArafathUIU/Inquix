@@ -3,13 +3,36 @@ from app.config import settings
 
 
 async def get_embedding(text: str) -> list[float]:
-    provider = settings.embed_provider
-    if provider == "jina" and settings.jina_api_key:
+    if settings.openai_api_key:
+        try:
+            return await _embed_openai(text)
+        except Exception as e:
+            print(f"OpenAI embedding failed, falling back: {e}")
+
+    if settings.jina_api_key:
         try:
             return await _embed_jina(text)
         except Exception as e:
             print(f"Jina embedding failed, falling back to Ollama: {e}")
+
     return await _embed_ollama(text)
+
+
+async def _embed_openai(text: str) -> list[float]:
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.post(
+            "https://api.openai.com/v1/embeddings",
+            headers={
+                "Authorization": f"Bearer {settings.openai_api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": settings.openai_embedding_model,
+                "input": [text[:8000]],
+            },
+        )
+        response.raise_for_status()
+        return response.json()["data"][0]["embedding"]
 
 
 async def _embed_jina(text: str) -> list[float]:
@@ -42,8 +65,12 @@ async def _embed_ollama(text: str) -> list[float]:
 async def ensure_models():
     import asyncio
 
-    if settings.llm_provider != "ollama" and settings.embed_provider != "ollama":
-        print("Cloud providers configured, skipping Ollama model checks")
+    llm_needs_ollama = not settings.openai_api_key and not settings.groq_api_key
+    embed_needs_ollama = not settings.openai_api_key and not settings.jina_api_key
+    vision_needs_ollama = not settings.openai_api_key
+
+    if not llm_needs_ollama and not embed_needs_ollama and not vision_needs_ollama:
+        print("Cloud providers cover all roles, skipping Ollama model checks")
         return
 
     for attempt in range(12):
@@ -54,10 +81,11 @@ async def ensure_models():
                 available = {m["name"] for m in response.json().get("models", [])}
 
             needed = set()
-            if settings.embed_provider == "ollama":
+            if embed_needs_ollama:
                 needed.add(settings.embedding_model)
-            if settings.llm_provider == "ollama":
+            if llm_needs_ollama:
                 needed.add(settings.llm_model)
+            if vision_needs_ollama:
                 needed.add(settings.vision_model)
             missing = needed - available
 

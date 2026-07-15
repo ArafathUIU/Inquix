@@ -5,6 +5,7 @@ import re
 import subprocess
 import numpy as np
 import aiofiles
+import httpx
 from datetime import datetime
 import fitz
 from PIL import Image
@@ -211,7 +212,33 @@ def _is_silent(wav_path: str, threshold: float = 0.02) -> bool:
         return False
 
 
+async def _transcribe_openai(file_path: str) -> tuple[str, dict]:
+    try:
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            with open(file_path, "rb") as f:
+                files = {"file": (os.path.basename(file_path), f, "audio/wav")}
+                data = {"model": settings.openai_whisper_model}
+                response = await client.post(
+                    "https://api.openai.com/v1/audio/transcriptions",
+                    headers={"Authorization": f"Bearer {settings.openai_api_key}"},
+                    data=data,
+                    files=files,
+                )
+            response.raise_for_status()
+            result = response.json()
+            text = result.get("text", "").strip()
+            return text, {"segments": [], "language": result.get("language", "en")}
+    except Exception as e:
+        print(f"OpenAI Whisper failed: {e}")
+        return "", {}
+
+
 async def extract_from_audio(file_path: str) -> tuple[str, dict]:
+    if settings.openai_api_key:
+        text, metadata = await _transcribe_openai(file_path)
+        if text:
+            return text, metadata
+
     wav_path = file_path + "_converted.wav"
     try:
         if not _convert_to_wav(file_path, wav_path):

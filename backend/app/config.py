@@ -15,6 +15,14 @@ class Settings(BaseSettings):
     embedding_model: str = "nomic-embed-text"
     jina_api_key: str = ""
 
+    openai_api_key: str = ""
+
+    openai_llm_model: str = "gpt-4o-2024-11-20"
+    openai_embedding_model: str = "text-embedding-3-small"
+    openai_tts_model: str = "tts-1-hd"
+    openai_tts_voice: str = "alloy"
+    openai_whisper_model: str = "whisper-1"
+
     vision_model: str = "llava-phi3:3.8b"
     web_search_threshold: float = 0.65
     tts_provider: str = "kokoro"

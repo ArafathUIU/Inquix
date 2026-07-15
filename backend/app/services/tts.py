@@ -2,6 +2,7 @@ import io
 import wave
 import struct
 import numpy as np
+import httpx
 
 
 _kokoro_pipeline = None
@@ -87,7 +88,37 @@ async def synthesize_edge(text: str, voice: str = 'en-US-AriaNeural') -> bytes |
         return None
 
 
+async def synthesize_openai(text: str, voice: str = "") -> bytes | None:
+    if not voice:
+        voice = settings.openai_tts_voice
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(
+                "https://api.openai.com/v1/audio/speech",
+                headers={
+                    "Authorization": f"Bearer {settings.openai_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": settings.openai_tts_model,
+                    "input": text,
+                    "voice": voice,
+                    "response_format": "wav",
+                },
+            )
+            response.raise_for_status()
+            return response.content
+    except Exception as e:
+        print(f"OpenAI TTS failed: {e}")
+        return None
+
+
 async def text_to_speech(text: str) -> bytes | None:
+    if settings.openai_api_key:
+        audio = await synthesize_openai(text)
+        if audio:
+            return audio
+
     audio = await synthesize_kokoro(text)
     if audio:
         return audio
