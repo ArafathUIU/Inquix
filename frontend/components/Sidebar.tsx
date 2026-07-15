@@ -50,7 +50,7 @@ export function Sidebar({
     e.stopPropagation();
     try {
       await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/conversations/${id}`,
+        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001"}/api/conversations/${id}`,
         { method: "DELETE" }
       );
       setConversations((prev) => prev.filter((c) => c.id !== id));

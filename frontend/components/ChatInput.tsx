@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from "react";
 import { Send, Mic, MicOff, Loader2, Plus, FileAudio, FileText, X, Square } from "lucide-react";
 import clsx from "clsx";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
 
 interface PendingFile {
   id: string;

@@ -9,7 +9,7 @@ import { ChatInput } from "./ChatInput";
 import { fileToBase64 } from "@/lib/api";
 import type { Message, Citation, ConversationMessage } from "@/types";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
 
 interface ChatInterfaceProps {
   kbId: string;
